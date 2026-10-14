@@ -101,8 +101,9 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 # Xendit
 XENDIT_SECRET_KEY=xnd_development_...           # xnd_production_... in prod
 # Xendit calls peeka (peekainsight.com) directly; peeka relays the webhook to us, HMAC-signed
-# with this shared secret. Must match the secret peeka signs with.
-PEEKA_FORWARD_SECRET=any_random_string
+# with this shared secret. Must equal TALENCO_FORWARD_SECRET in peeka's backend .env
+# (peeka also needs TALENCO_WEBHOOK_URL=https://<this-domain>/api/payment/webhook).
+PEEKA_FORWARD_SECRET=output_of_openssl_rand_hex_32
 INSTALLMENT_CRON_SECRET=any_random_string       # protects GET /api/payment/installment-run-schedule
 
 # Resend

@@ -119,7 +119,7 @@ export function Footer({ nav, dict, locale }: FooterProps) {
 
         <div className="border-t border-white/10">
           <div className="mx-auto flex w-full max-w-[1240px] flex-col items-center justify-between gap-4 px-4 py-6 sm:flex-row md:px-8">
-            <p className="text-xs text-white/60">
+            <p className="text-xs text-center sm:text-left text-white/60">
               © {year} TalenCo. {dict.rightsReserved}{" "}
               <a
                 href="https://herdento.com"
