@@ -6,6 +6,8 @@ import type { NextConfig } from "next";
 const devOrigin = process.env.DEV_ALLOWED_ORIGIN;
 
 const nextConfig: NextConfig = {
+  // The Docker image ships only .next/standalone (see Dockerfile). Netlify's Next runtime builds fine with it.
+  output: "standalone",
   experimental: {
     globalNotFound: true,
   },
