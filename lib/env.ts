@@ -9,8 +9,10 @@ const REQUIRED_SERVER = [
   "TURNSTILE_SECRET_KEY",
   "XENDIT_SECRET_KEY",
   "PEEKA_FORWARD_SECRET",
-  "INSTALLMENT_CRON_SECRET",
   "ADMIN_PASSWORD",
+  "PAYMENT_SERVICE_URL",
+  "PAYMENT_APP_KEY",
+  "PAYMENT_WEBHOOK_SECRET",
 ] as const;
 
 const REQUIRED_PUBLIC = ["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_APP_URL"] as const;
@@ -33,8 +35,10 @@ export const env = {
   // Verifies the HMAC signature peeka (peekainsight.com) attaches when it relays a Xendit
   // webhook to us — Xendit itself now calls peeka, not this app, directly (Netlify function limits).
   peekaForwardSecret: process.env.PEEKA_FORWARD_SECRET!,
-  installmentCronSecret: process.env.INSTALLMENT_CRON_SECRET!,
   adminPassword: process.env.ADMIN_PASSWORD!,
+  paymentServiceUrl: process.env.PAYMENT_SERVICE_URL!.replace(/\/+$/, ""),
+  paymentAppKey: process.env.PAYMENT_APP_KEY!,
+  paymentWebhookSecret: process.env.PAYMENT_WEBHOOK_SECRET!,
   appUrl: (() => {
     const u = process.env.NEXT_PUBLIC_APP_URL!;
     return u.startsWith("http") ? u : `https://${u}`;

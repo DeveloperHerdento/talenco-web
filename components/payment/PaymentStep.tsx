@@ -28,16 +28,15 @@ export function PaymentStep({ accessToken, locale, onPaid }: PaymentStepProps) {
   const [scheme, setScheme] = useState<ProgramScheme>("online");
   const [paymentType, setPaymentType] = useState<PaymentType>("full");
   const { phase, error, ready, containerRef, start, pay } = useXenditCardSession(() => onPaid(paymentType), {
-    confirmPaid: () => pollPaymentStatus(accessToken, (d) => d.status === "paid"),
+    confirmPaid: () => pollPaymentStatus(accessToken, (d) => d.status === "COMPLETED" || d.status === "ACTIVE"),
   });
 
-  // Full payment and installment 1 share this hook — installment just sets allow_save_payment_method server-side.
   const startPayment = () =>
     start(() =>
-      fetch(paymentType === "installment" ? "/api/payment/installment-session" : "/api/payment/session", {
+      fetch("/api/payment/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessToken, scheme, locale }),
+        body: JSON.stringify({ accessToken, scheme, paymentType }),
       })
     );
 

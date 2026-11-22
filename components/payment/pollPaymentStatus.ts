@@ -1,4 +1,4 @@
-export type PaymentStatus = { status: string; paymentType: string | null };
+export type PaymentStatus = { status: string };
 
 export async function pollPaymentStatus(
   accessToken: string,
@@ -7,7 +7,7 @@ export async function pollPaymentStatus(
 ): Promise<boolean> {
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetch(`/api/payment/status?accessToken=${encodeURIComponent(accessToken)}`);
+      const res = await fetch(`/api/payment/order?token=${encodeURIComponent(accessToken)}`);
       if (res.ok) {
         const data: PaymentStatus = await res.json();
         if (isDone(data)) return true;

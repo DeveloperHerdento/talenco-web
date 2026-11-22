@@ -83,14 +83,3 @@ export const webhookLimiter = make(
       prefix: "rl:webhook",
     })
 );
-
-// The scheduler calls this once a day from one source IP; a real cron tick never comes close to
-// this, so it only bites a leaked INSTALLMENT_CRON_SECRET being replayed rapidly.
-export const cronLimiter = make(
-  () =>
-    new Ratelimit({
-      redis: redis!,
-      limiter: Ratelimit.slidingWindow(6, "1 h"),
-      prefix: "rl:cron",
-    })
-);

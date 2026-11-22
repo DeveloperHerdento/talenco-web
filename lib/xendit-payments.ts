@@ -1,9 +1,18 @@
 import "server-only";
 
 import { env } from "@/lib/env";
-import { XenditApiError } from "@/lib/xendit";
 
-export { XenditApiError };
+// Legacy direct-Xendit installments only (registrations created before payment-service).
+export class XenditApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public body: unknown
+  ) {
+    super(message);
+    this.name = "XenditApiError";
+  }
+}
 
 const XENDIT_API_BASE = "https://api.xendit.co";
 

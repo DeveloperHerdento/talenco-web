@@ -45,7 +45,7 @@ export function useXenditCardSession(onPaid: () => void, options: Options = {}) 
       setChargedAmount({ amount: json.amount, currency: json.currency });
 
       const { XenditComponents } = await import("xendit-components-web");
-      const components = new XenditComponents({ componentsSdkKey: json.componentsSdkKey });
+      const components = new XenditComponents({ componentsSdkKey: json.sdkKey });
       componentsRef.current = components;
 
       const handleInit = () => {
