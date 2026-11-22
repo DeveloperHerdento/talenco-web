@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+coverage
+.git
+.github
+.env
+.env*
+docs
+.local-data
+.claude
+*.tsbuildinfo
