@@ -1,6 +1,49 @@
+# talenco-web
 
-Marketing site, bilingual (ja/en) registration wizard, and embedded Xendit card-payment flow for
-the TalenCo Global Career Starter Program.
+> Marketing site, bilingual (ja/en) registration wizard, and embedded Xendit card-payment flow for
+> the TalenCo Global Career Starter Program (client: LBI).
+
+**Owner:** @DeveloperHerdento (TODO(owner): confirm team) · **Status:** live, maintenance only — payment-service integration in progress
+
+## Getting started
+
+Requirements: Node 24 (see `.nvmrc`).
+
+```bash
+git clone https://github.com/DeveloperHerdento/talenco-web.git && cd talenco-web
+cp .env.example .env          # fill in real values (ask the owner)
+npm ci
+npm run dev                   # http://127.0.0.1:3000
+```
+
+## Common tasks
+
+| Task | Command |
+|---|---|
+| Run locally | `npm run dev` |
+| Lint | `npm run lint` |
+| Format | `npm run format` (CI runs `npm run format:check`) |
+| Typecheck | `npm run typecheck` |
+| Test | `npm test` |
+| Build | `npm run build` |
+
+> Next.js 16 has breaking changes compared with older versions (e.g. `proxy.ts` replaces `middleware.ts`).
+> Check the docs bundled in `node_modules/next/dist/docs/` before changing framework-level code.
+
+## Run with Docker
+
+Production-like container (Next.js standalone, external Supabase, no database container). Details,
+build args and rollback: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+```bash
+docker build -t talenco-web:local \
+  --build-arg NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co \
+  --build-arg NEXT_PUBLIC_APP_URL=http://127.0.0.1:3000 .
+docker run --rm --env-file .env -p 127.0.0.1:3000:3000 talenco-web:local
+curl -fsS http://127.0.0.1:3000/api/health   # {"status":"ok"}
+```
+
+On a server use `docker-compose.yml` (`IMAGE`, `PORT` and every key from `.env.example` in `.env`, then `docker compose up -d`).
 
 ## Tech Stack
 
@@ -14,7 +57,7 @@ the TalenCo Global Career Starter Program.
 | Bot protection | Cloudflare Turnstile |
 | Rate limiting | Upstash Redis (no-op in local dev — see `lib/ratelimit.ts`) |
 | i18n | Custom dictionary lookup (`lib/i18n/`), ja/en, locale in the URL path |
-| Deployment | Netlify |
+| Deployment | Netlify (current); Docker image + compose also available (`docs/DEPLOYMENT.md`) |
 
 ## Project Structure
 
@@ -29,15 +72,16 @@ app/
     (legal)/privacy/page.tsx     Privacy policy
     (legal)/terms/page.tsx       Terms of service
   api/
+    health/route.ts              GET  — liveness check for the Docker healthcheck
     register/route.ts            POST — validates, verifies Turnstile, inserts registration
     payment/
-      session/route.ts           POST — creates the full-payment Xendit session
-      webhook/route.ts           POST — peeka relays Xendit's webhook here; sole authority for marking paid
-      status/route.ts            GET  — polled by the client to confirm the webhook landed
-      installment-session/route.ts       POST — installment 1 (saves a reusable card token)
-      installment-charge-now/route.ts    POST — user-initiated "pay next"/"pay all remaining"
-      installment-run-schedule/route.ts  GET  — daily auto-charge trigger, secret-protected
+      checkout/route.ts          POST — creates the order + payment session in payment-service
+      order/route.ts             GET  — polled by the client to confirm the payment landed
+      webhook/route.ts           POST — legacy: peeka relays Xendit's webhook here (old direct-Xendit registrations)
+      installment-charge-now/route.ts    POST — legacy installments: user-initiated "pay next"/"pay all remaining"
       installment-status/route.ts        GET  — polled installment progress
+    payments/
+      webhook/route.ts           POST — signed events from payment-service; sole authority for marking paid
     admin/
       login/route.ts               POST — admin session login
       logout/route.ts              POST — admin session logout
@@ -93,61 +137,25 @@ tree or `i18next` runtime. See `lib/i18n/dictionaries/{en,ja}.ts`.
 The required list is enforced at startup by `lib/env.ts` — it throws on import if anything's
 missing, so a misconfigured deploy fails the whole build rather than one request at a time.
 
-```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
-
-# Xendit
-XENDIT_SECRET_KEY=xnd_development_...           # xnd_production_... in prod
-# Xendit calls peeka (peekainsight.com) directly; peeka relays the webhook to us, HMAC-signed
-# with this shared secret. Must equal TALENCO_FORWARD_SECRET in peeka's backend .env
-# (peeka also needs TALENCO_WEBHOOK_URL=https://<this-domain>/api/payment/webhook).
-PEEKA_FORWARD_SECRET=output_of_openssl_rand_hex_32
-INSTALLMENT_CRON_SECRET=any_random_string       # protects GET /api/payment/installment-run-schedule
-
-# Resend
-RESEND_API_KEY=re_...
-RESEND_FROM_EMAIL=noreply@yourdomain.com        # must be a verified domain in Resend
-
-# Upstash Redis (skipped entirely in local dev — see lib/ratelimit.ts)
-UPSTASH_REDIS_REST_URL=https://xxxx.upstash.io
-UPSTASH_REDIS_REST_TOKEN=AXxx...
-
-# Cloudflare Turnstile
-TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
-NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA   # omit to use the dev-bypass path
-
-# Admin panel
-ADMIN_PASSWORD=any_strong_shared_password       # single shared password, no user accounts
-
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000       # production: your real domain
-
-OPS_ALERT_EMAIL=                                # emails reconciliation problems here instead of only logging
-```
+Every variable is listed in [`.env.example`](.env.example) with a comment and a dummy value. Real values go in
+`.env`, which git ignores.
 
 Full variable-by-variable reference, sensitivity, and where to get each one:
-**`docs/ENV_TROUBLESHOOTING.md`**.
+**`docs/env-troubleshooting.md`**.
 
 ## Database
 
 Three tables: `registrations` (one row per applicant) and, for the installment path,
-`installment_plans` + `installments`. Full migration SQL is in **`docs/TESTING_PAYMENT.md`, steps
+`installment_plans` + `installments`. Full migration SQL is in **`docs/testing-payment.md`, steps
 1 and 1b** — that's the copy-pasteable source of truth, not duplicated here. RLS is optional
 defense-in-depth only; every query goes through the service-role client server-side (see "RLS" in
-`docs/PAYMENT.md`).
+`docs/payment.md`).
 
 ## Local Development
 
-```bash
-npm install
-npm run dev
-```
-
 Rate limiting is skipped entirely in `NODE_ENV=development` (no Upstash account needed to run
 locally — see `lib/ratelimit.ts`). Turnstile has a dev-bypass path too when no site key is
-configured. To test the Xendit webhook locally you need a public URL — see `docs/TESTING_PAYMENT.md`
+configured. To test the Xendit webhook locally you need a public URL — see `docs/testing-payment.md`
 for the full ngrok + test-mode walkthrough.
 
 ```bash
@@ -168,28 +176,38 @@ have no automated coverage yet.
 Register wizard → POST /api/register → registrations row created, confirmation email sent
                    with a /[lang]/my?token=<accessToken> link
 
-/my (token page) → PaymentStep → POST /api/payment/session → Xendit Sessions API
-                   → embedded card form (iframe, no redirect) → session-complete event
-                   → client polls /api/payment/status until the webhook has landed
+/my (token page) → PaymentStep → POST /api/payment/checkout → payment-service POST /v1/checkouts
+                   → embedded card form (Xendit Components, no redirect) → session-complete event
+                   → client polls /api/payment/order until payment-service reports the order paid
 
 Xendit → peeka (peekainsight.com) → POST /api/payment/webhook → verifies peeka's HMAC
          forward signature → atomically marks the matching registration paid → sends
          confirmation email
 
 If payment_type = "installment": /my instead shows InstallmentPaymentPanel — a fixed 4x
-saved-card plan on a separate Xendit surface (Payments API). See docs/PAYMENT.md → "Installment plan."
+saved-card plan on a separate Xendit surface (Payments API). See docs/payment.md → "Installment plan."
 ```
 
 Full architecture, every security decision, and why each one was made:
-**`docs/PAYMENT.md`** — read this before touching anything under `app/api/payment/`,
+**`docs/payment.md`** — read this before touching anything under `app/api/payment/`,
 `components/payment/`, or `lib/xendit.ts`.
 
 ## Other Docs
 
 | Doc | What it's for |
 |---|---|
-| `docs/PAYMENT.md` | Xendit payment architecture, security decisions, known gaps |
-| `docs/TESTING_PAYMENT.md` | Step-by-step checklist to run the payment flow end-to-end, incl. the DB migration SQL |
-| `docs/DEPLOYMENT.md` | Netlify launch checklist, in order |
-| `docs/ENV_TROUBLESHOOTING.md` | Every env var, what it's for, and symptom → cause → fix |
-| `docs/LEARN.md` | Deep-dive teaching guide — Next.js concepts + how this specific codebase works |
+| `docs/payment.md` | Xendit payment architecture, security decisions, known gaps |
+| `docs/testing-payment.md` | Step-by-step checklist to run the payment flow end-to-end, incl. the DB migration SQL |
+| `docs/DEPLOYMENT.md` | Docker deployment (build, run, verify, rollback) |
+| `docs/deployment-netlify.md` | Netlify launch checklist, in order (current hosting) |
+| `docs/env-troubleshooting.md` | Every env var, what it's for, and symptom → cause → fix |
+| `docs/database-migration.md` | Full Supabase schema reference (SQL applied by hand in the SQL Editor) |
+| `docs/developer-documentation.md` | Project hand-over document (scope, architecture, status) |
+| `docs/notes/` | Local working notes, git-ignored (plans, archived drafts) |
+| `docs/adr/` | Architecture decision records (copy `0000-template.md`) |
+| `docs/learn.md` | Deep-dive teaching guide — Next.js concepts + how this specific codebase works |
+
+## Contributing
+
+Branch from `develop` (`feat/…`, `fix/…`), keep pull requests small, and fill in the PR template.
+Commit messages follow `type(scope): description`. Notable changes go in [`CHANGELOG.md`](CHANGELOG.md).
