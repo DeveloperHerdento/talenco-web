@@ -1,0 +1,10 @@
+# GitHub requests a review from these owners for the paths a PR touches. The LAST matching line wins,
+# so general rules go first and specific ones below. Use teams, not single people, so reviews don't stall.
+# Takes effect once branch protection has "Require review from Code Owners" enabled.
+
+*                       @DeveloperHerdento
+
+# CI/CD: changes here affect how everything ships
+/.github/               @DeveloperHerdento
+/Dockerfile             @DeveloperHerdento
+/docker-compose.yml     @DeveloperHerdento

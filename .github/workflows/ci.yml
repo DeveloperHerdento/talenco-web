@@ -1,0 +1,10 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [develop, main] # no deploy.yml here (Netlify builds on push), so CI also runs on pushes (HGS-STD 7.1)
+permissions:
+  contents: read
+jobs:
+  ci:
+    uses: DeveloperHerdento/.github/.github/workflows/ci-node.yml@v1
